@@ -18,6 +18,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 def ler_dados(caminho : str) -> pd.DataFrame:
     """
@@ -50,10 +51,153 @@ def ler_dados(caminho : str) -> pd.DataFrame:
     except FileNotFoundError:
         logging.error("Arquivo não enontrado", exc_info=True)
         raise
+    
+    except Exception:
+        logging.error("Erro ao ler o arquivo de dados.", exc_info=True)
+        raise
 
     logging.info(f"Dataset carregado com sucesso: {df.shape[0]} linhas x {df.shape[1]} colunas")
 
+    return df
+
+
+def renomear_colunas_pt_br(df: pd.DataFrame) -> pd.DataFrame:
+    """
+        Renomeia as colunas para nomes mais amigáveis em português.
+        Retorna o DataFrame com as colunas renomeadas.
+    """
+    logging.info("Renomeando colunas para o padrão em português...")
+
+    map_colunas = {
+        df.columns[0]: "Compacidade_Relativa",
+        df.columns[1]: "Area_Superficial",
+        df.columns[2]: "Area_Parede",
+        df.columns[3]: "Area_Telhado",
+        df.columns[4]: "Altura_Total",
+        df.columns[5]: "Orientacao",
+        df.columns[6]: "Area_Vidro",
+        df.columns[7]: "Distribuicao_Area_Vidro",
+        df.columns[8]: "Carga_Aquecimento",
+        df.columns[9]: "Carga_Resfriamento",
+    }
+    df_renomeado = df.rename(columns=map_colunas)
+    
+    logging.info("Colunas renomeadas com sucesso.")
+    logging.debug(f"Novos nomes das colunas: {df_renomeado.columns.tolist()}")
+    
+    return df_renomeado
+
+
+def preparar_dados(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Separa o DataFrame em variáveis preditoras (X) e variáveis alvo (y).
+
+    Esta função:
+    - garante que as colunas estejam renomeadas (padrão AT1)
+    - separa X (features) e y (targets)
+    - retorna exatamente o formato que os modelos esperam
+
+    Retorna:
+        X (pd.DataFrame): atributos de entrada
+        y (pd.DataFrame): duas saídas (aquecimento e resfriamento)
+    """
+    logging.info("Preparando dados para modelagem...")
+
+    try:
+        # Define quais colunas sao alvos
+        targets = ["Carga_Aquecimento", "Carga_Resfriamento"]
+
+        # Verificação automatica das colunas
+        for t in targets:
+            if t not in df.columns:
+                logging.error(f"Coluna alvo não encontrada: {t}")
+                raise KeyError(f"Coluna alvo não encontrada: {t}")
+        
+        # X recebe todas colunas exceto targets
+        X = df.drop(columns=targets)
+
+        # y recebe somente os targets
+        y = df[targets]
+
+    except Exception:
+        logging.error("Erro ao prepar dados para modelagem.", exc_info=True)
+        raise
+
+    logging.info("Dados preparados com sucesso (X e y separados).")
+    logging.info(f"Formato X: {X.shape} | Formato y: {y.shape}")
+
+    return X, y
+
+
+def dividir_dados(
+        X: pd.DataFrame,
+        y: pd.DataFrame,
+        test_size: float = 0.2,
+        random_state: int = 42
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Divide os dados em conjuntos de treino e teste.
+
+    Parâmetros:
+        X (pd.DataFrame): variáveis preditoras
+        y (pd.DataFrame): variáveis alvo (dupla saída)
+        test_size (float): porcentagem destinada ao conjunto de teste
+        random_state (int): semente para reprodutibilidade
+
+    Retorna:
+        X_train, X_test, y_train, y_test
+    """
+    logging.info("Dividindo dados em treino e teste...")
+    
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=random_state
+        )
+    
+    except Exception:
+        logging.error("Erro ao dividir dados.", exc_info=True)
+        raise
+    
+    logging.info("Divisão concluída com sucesso.")
+    logging.info(f"X_train: {X_train.shape} | X_test: {X_test.shape}")
+    logging.info(f"y_train: {y_train.shape} | y_test: {y_test.shape}")
+
+    return X_train, X_test, y_train, y_test
+
+
+
 def executar_modelagem(PATHS: dict):
-    df = ler_dados(PATHS["DATA_PATH"])
-    logging.info("dados lidos")
-   
+    """
+    Controla todo o pipeline da AT2.
+    Esta versão executa apenas as etapas concluídas:
+    - ler dados
+    - preparar dados
+    - dividir dados
+    """
+    logging.info("======= INICIANDO PIPELINE MODELAGEM DE REGRESSÃO =======")
+    
+    
+    try:
+        # Ler dados
+        df = ler_dados(PATHS["DATA_PATH"])
+        logging.info("dados lidos")
+
+        # 
+        df = renomear_colunas_pt_br(df)
+        logging.info("Colunas renomeadas para português")
+
+
+        # Preparar X e y
+        X, y = preparar_dados(df)
+        logging.info("Dados preparados")
+
+        # Dividir em treino teste
+        X_train, X_test, y_train, y_test = dividir_dados(X, y)
+        logging.info("Dados divididos")
+
+    except Exception:
+        logging.error("ERRO CRÍTICO NO PIPELINE DA MODELAGEM", exc_info=True)
+        raise
