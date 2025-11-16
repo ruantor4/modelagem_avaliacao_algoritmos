@@ -36,7 +36,24 @@ def ler_dados(caminho : str) -> pd.DataFrame:
     """
     logging.info(f"lendo dados do arquivo: {caminho}")
 
+    try:
+        if caminho.endswith(".csv"):
+            df = pd.read_csv(caminho)
 
+        elif caminho.endswith(".xlsx"):
+            df = pd.read_excel(caminho)
+        
+        else:
+            logging.error("Formato de arquivo não suportado")
+            raise ValueError("O arquivo deve ser .csv ou .xlsx")
+        
+    except FileNotFoundError:
+        logging.error("Arquivo não enontrado", exc_info=True)
+        raise
+
+    logging.info(f"Dataset carregado com sucesso: {df.shape[0]} linhas x {df.shape[1]} colunas")
 
 def executar_modelagem(PATHS: dict):
-    pass
+    df = ler_dados(PATHS["DATA_PATH"])
+    logging.info("dados lidos")
+   

@@ -23,7 +23,7 @@ def log_system(log_path: str):
 def main():
     
     # Base do projeto
-    BASE_PATH = os.path.abspath(os.path.dirname(__file__))
+    BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     
     # caminhos
     PATHS = {
@@ -49,7 +49,7 @@ def main():
         logging.info("Execução finalizada com sucesso!")
     
     except Exception as e:
-        logging.error("ERRO CRÍTICO NA EXECUÇÃO", exec_info=True)
+        logging.error("ERRO CRÍTICO NA EXECUÇÃO", exc_info=True)
 
 
 if __name__ == "__main__":
