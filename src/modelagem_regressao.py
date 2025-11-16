@@ -6,7 +6,6 @@ AT2 - Modelagem e avaliação de algoritmos de regressão
 para o Case de Eficiência Energética.
 
 Objetivo:
-- Converter o arquivo XLSX para CSV
 - Ler o arquivo data/dados.csv (mesmo dataset da AT1)
 - Aplicar pelo menos cinco técnicas de regressão supervisionada
 - Avaliar os modelos com RMSE, MAE e R²
@@ -14,20 +13,30 @@ Objetivo:
 - Gerar um relatório em PDF com a análise comparativa entre os modelos
 """
 import os
+import logging
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
-# Caminhos
+def ler_dados(caminho : str) -> pd.DataFrame:
+    """
+    Lê o CSV contendo o dataset e retorna um DataFrame.
 
-BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATA_PATH = os.path.join(BASE_PATH, "data", "dados.csv")
-OUTPUT_DIR = os.path.join(BASE_PATH, "outputs")
-IMAGES_DIR = os.path.join(OUTPUT_DIR, "figs")
-PDF_PATH = os.path.join(OUTPUT_DIR, "relatorio_modelagem.pdf")
-METRICAS_CSV_PATH = os.path.join(OUTPUT_DIR, "metricas_modelos.csv")
+    Parâmetros
+    ----------
+    caminho_arquivo : str
+        Caminho completo até o arquivo CSV. Exemplo:
+        "C:/projetos/eficiencia_energetica/data/dados.csv"
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-os.makedirs(IMAGES_DIR, exist_ok=True)
+    Retorno
+    -------
+    df : pandas.DataFrame
+        DataFrame contendo os dados lidos do CSV.
+    """
+    logging.info(f"lendo dados do arquivo: {caminho}")
 
+
+
+def executar_modelagem(PATHS: dict):
+    pass
