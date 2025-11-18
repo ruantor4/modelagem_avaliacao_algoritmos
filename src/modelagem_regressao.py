@@ -18,8 +18,10 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -279,6 +281,104 @@ def criar_modelos_regressao() -> dict[str, object]:
     
     return modelos
 
+def treinar_modelos(
+        modelos:dict,
+        X_train: pd.DataFrame,
+        y_train: pd.DataFrame
+) -> dict:
+    """
+    Treina todos os modelos fornecidos no dicionário `modelos`.
+
+    Cada modelo recebe:
+        - X_train (dados preditores padronizados)
+        - y_train (variáveis alvo)
+
+    Retorna:
+        dict contendo os modelos ajustados (treinados).
+    """
+    logging.info("Iniciando treinamento dos modelos de regressão...")  
+
+    modelos_treinados = {}  
+
+    try:
+        for nome, modelo in modelos.items():
+            logging.info(f"Treinando modelo: {nome}")
+            modelo.fit(X_train, y_train)
+            modelos_treinados[nome] = modelo
+            logging.info(f"Modelo treinado com sucesso: {nome}")
+
+    except Exception:
+        logging.error("Erro durante o treinamento dos modelos.", exc_info=True)
+        raise
+
+    logging.info("Treinamento concluído para todos os modelos.")
+    return modelos_treinados
+
+
+
+def avaliar_modelos(
+        modelos_treinados: dict,
+        X_test: pd.DataFrame,
+        y_test: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Avalia o desempenho de cada modelo usando as métricas:
+    - RMSE: Raiz do Erro Quadrático Médio
+    - MAE : Erro Absoluto Médio
+    - R²  : Coeficiente de Determinação
+
+    Parâmetros
+    ----------
+    modelos_treinados : dict
+        Dicionário contendo modelos já treinados.
+        Ex: {"LinearRegression": modelo_fit, "RandomForest": modelo_fit, ...}
+
+    X_test : pd.DataFrame
+        Atributos (preditivas) do conjunto de teste.
+
+    y_test : pd.DataFrame
+        Variáveis alvo do conjunto de teste.
+
+    Retorna
+    -------
+    pd.DataFrame
+        Tabela contendo as métricas para cada modelo.
+        Colunas: ["Modelo", "RMSE", "MAE", "R2"]
+    """
+    logging.info("Avaliando modelos com RMSE, MAE e R²")
+
+    registros = []
+
+    for nome, modelo in modelos_treinados.items():
+        logging.info(f"Avaliando modelo: {nome}")
+
+        try:
+            # Predição
+            y_pred = modelo.predict(X_test)    
+
+            # Calculo das métricas
+            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+            mae = mean_squared_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
+
+            registros.append({
+                "Modelo": nome,
+                "RMSE":rmse,
+                "MAE":mae,
+                "R2":r2
+            })
+
+            logging.info(f"Métricas {nome} -> RMSE: {rmse: .4f}, MAE: {mae:.4f}, R2: {r2:.4f}")
+
+        except Exception:
+            logging.error(f"Erro ao avaliar modelo {nome}.", exc_info=True)
+            raise
+
+    df_metricas = pd.DataFrame(registros)
+
+    logging.info("Avaliação concluída com sucesso.")
+
+    return df_metricas
 
 
 def executar_modelagem(PATHS: dict):
@@ -318,6 +418,14 @@ def executar_modelagem(PATHS: dict):
 
         modelos = criar_modelos_regressao()
         logging.info("Modelos de regressão criados com sucesso.")
+
+        modelos_treinados = treinar_modelos(modelos, X_train_std, y_train)
+        logging.info("Modelos Avaliados")
+
+        df_metricas = avaliar_modelos(modelos_treinados, X_train_std, y_train)
+        modelos_treinados = avaliar_modelos(modelos_treinados, X_test_std, y_test)
+        logging.info("Modelos avaliados com sucesso.")
+
 
 
     except Exception:
