@@ -18,8 +18,12 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.model_selection import train_test_split
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.svm import SVR
 
 
 def ler_dados(caminho : str) -> pd.DataFrame:
@@ -227,6 +231,54 @@ def preprocessar_dados(
         scaler_minmax
     )
 
+def criar_modelos_regressao() -> dict[str, object]:
+    """
+    Cria e retorna um dicionário com os modelos de regressão
+    que serão utilizados na AT2.
+
+    Modelos incluídos:
+    - Regressão Linear
+    - Ridge
+    - Lasso
+    - Random Forest Regressor
+    - Gradient Boosting (MultiOutput)
+    - SVR (MultiOutput)
+
+    Retorna:
+        dict[str, object]: dicionário no formato
+            {
+                "NomeModelo": instancia_do_modelo,
+                ...
+            }
+    """
+    logging.info("Criando instâncias dos modelos de regressão...")
+
+    try:
+        modelos: dict[str, object] = {
+            "LinearRegression": LinearRegression(),
+            "Ridge": Ridge(alpha=1.0),
+            "Lasso": Lasso(alpha=0.001),
+            "RandomForest": RandomForestRegressor(
+                n_estimators=300,
+                random_state=42
+            
+            ),
+            "GradientBoosting": MultiOutputRegressor(
+                GradientBoostingRegressor(random_state=42)
+            ),
+            "SVR": MultiOutputRegressor(
+                SVR(kernel="rbf", C=100, gamma="scale")
+            ),
+        }
+    
+    except Exception:
+        logging.error("Erro ao criar instâncias dos modelos de regressão.", exc_info=True)
+        raise
+
+    logging.info(f"Total de modelos criados: {len(modelos)}")
+    
+    return modelos
+
 
 
 def executar_modelagem(PATHS: dict):
@@ -263,6 +315,9 @@ def executar_modelagem(PATHS: dict):
             scaler_std, scaler_mm
         ) = preprocessar_dados(X_train, X_test)
         logging.info("Dados Processados")
+
+        modelos = criar_modelos_regressao()
+        logging.info("Modelos de regressão criados com sucesso.")
 
 
     except Exception:
