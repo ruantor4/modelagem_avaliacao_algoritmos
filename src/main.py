@@ -31,7 +31,7 @@ def main():
         "DATA_PATH": os.path.join(BASE_PATH, "data", "ENB2012_data.xlsx"),
         "OUTPUT_DIR": os.path.join(BASE_PATH, "outputs"),
         "IMAGES_DIR": os.path.join(BASE_PATH, "outputs", "figs" ),
-        "REPORT_MODELAGEM": os.path.join(BASE_PATH, "outputs", "relatorio_modelagem.pdf"),
+        "PDF_REPORT": os.path.join(BASE_PATH, "outputs", "relatorio_modelagem.pdf"),
         "CSV_METRIC": os.path.join(BASE_PATH, "outputs", "metricas_modelos.csv"),
         "LOG_PATH": os.path.join(BASE_PATH, "logs.txt")
     }

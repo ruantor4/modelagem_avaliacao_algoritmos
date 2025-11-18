@@ -18,14 +18,22 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.svm import SVR
+from sklearn.multioutput import MultiOutputRegressor
+
+from sklearn.metrics import mean_squared_error, r2_score
+
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
 
 def ler_dados(caminho : str) -> pd.DataFrame:
@@ -382,6 +390,8 @@ def avaliar_modelos(
 
     return df_metricas
 
+
+
 def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
     """
     Salva o DataFrame de métricas em um arquivo CSV.
@@ -398,8 +408,6 @@ def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
     logging.info(f"Salvando tabela de métricas em CSV: {caminho_csv}")
 
     try:
-        os.makedirs(os.path.dirname(caminho_csv), exist_ok=True)
-
         # Salva o CSV
         df_metricas.to_csv(caminho_csv, index=False)
 
@@ -410,9 +418,167 @@ def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
         raise
 
 
+
+def gerar_graficos_metricas(df_metricas: pd.DataFrame, fig_dir: str) ->None:
+    """
+    Gera gráficos comparativos das métricas RMSE, MAE e R² entre os modelos.
+
+    Parâmetros:
+        df_metricas (pd.DataFrame): tabela contendo as métricas de cada modelo
+        figs_dir (str): diretório onde as figuras serão salvas
+
+    Regras Profissionais:
+        - Criar diretório se não existir
+        - Usar seaborn para gráficos profissionais
+        - Uma figura por métrica
+        - Nome dos arquivos consistente com o pipeline
+    """
+    logging.info("Gerando gráficos comparativos das métricas...")    
+
+    try:
+        metricas = ["RMSE", "MAE", "R2"]
+
+        for metrica in metricas:
+            plt.figure(figsize=(9, 4))
+            sns.barplot(data=df_metricas, x="Modelo", y=metrica)
+            plt.title(f"Comparação dos Modelos - {metrica}")
+            plt.xticks(rotation=45, ha="right")
+            plt.tight_layout()
+
+            caminho_fig = os.path.join(fig_dir, f"comparacao_{metrica}.png")
+
+            plt.savefig(caminho_fig)
+            plt.close()
+
+            logging.info("Gráfico salvo: {caminho_fig}")
+
+    except Exception:
+        logging.error("Erro ao gerar gráficos das métricas.", exc_info=True)
+        raise
+
+    logging.info("Gráficos gerados com sucesso.")
+
+
+
+def gerar_relatorio_modelagem_pdf(
+        df_metricas: pd.DataFrame,
+        caminho_pdf: str,
+        figs_dir: str
+) -> None:
+    """
+    Gera o relatório final no formato PDF contendo:
+
+    - Capa com título e data
+    - Tabela de métricas (RMSE, MAE, R²)
+    - Gráficos comparativos gerados automaticamente
+
+    Parâmetros:
+        df_metricas (pd.DataFrame): tabela de resultados dos modelos
+        caminho_pdf (str): caminho completo para salvar o PDF
+        figs_dir (str): pasta contendo os gráficos PNG
+
+    Regras Profissionais:
+        - Criar páginas separadas sempre que necessário
+        - Garantir formatação limpa e alinhada
+        - Quebrar linhas automaticamente ao desenhar tabelas
+        - Verificar existência de figuras antes de inserir
+        - Layout consistente com documentos acadêmicos
+    """
+    logging.info("Gerando relatório PDF...")
+
+    try:
+        largura, altura = A4
+        c = canvas.Canvas(caminho_pdf, pagesize=A4)
+
+        # Capa
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(largura / 2, altura - 100, "AT2 – Modelagem de Regressão")
+
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(
+            largura / 2,
+            altura - 130,
+            f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
+
+        c.setFont("Helvetica", 11)
+        c.drawCentredString(
+            largura / 2,
+            altura - 160,
+            "Análise comparativa de modelos supervisionados para eficiência energética"
+        )
+
+        c.showPage()
+
+        # Tabela de Metricas
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(40, altura - 60, "Tabela Comparativa de Métricas")
+
+        c.setFont("Courier", 10)
+
+        tabela_txt = df_metricas.to_string(index=False)
+        linhas = tabela_txt.split("\n")
+
+        y = altura - 90
+        for linha in linhas:
+            c.drawString(40, y, linha)
+            y -= 14
+
+            if y < 60:  # quebra de página
+                c.showPage()
+                c.setFont("Courier", 10)
+                y = altura - 60
+
+ 
+        # GRÁFICOS
+        if os.path.exists(figs_dir):
+            figuras = sorted([
+                f for f in os.listdir(figs_dir)
+                if f.lower().endswith(".png")
+            ])
+
+            for fig in figuras:
+                caminho_fig = os.path.join(figs_dir, fig)
+
+                if not os.path.exists(caminho_fig):
+                    continue
+
+                img = ImageReader(caminho_fig)
+                iw, ih = img.getSize()
+
+                # redimensionamento proporcional
+                max_w = largura - 80
+                new_h = max_w * (ih / iw)
+
+                if new_h > altura - 120:
+                    new_h = altura - 120
+                    max_w = new_h * (iw / ih)
+
+                c.showPage()
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(40, altura - 60, f"Figura – {fig}")
+
+                c.drawImage(
+                    img,
+                    40,
+                    altura - 100 - new_h,
+                    width=max_w,
+                    height=new_h
+                )
+
+            # Finalizar PDF
+        c.save()
+        logging.info(f"Relatório PDF da modelagem salvo em: {caminho_pdf}")
+
+    except Exception:
+        logging.error("Erro ao gerar relatório PDF da AT2.", exc_info=True)
+        raise
+
+
+
 def executar_modelagem(PATHS: dict):
     """
-    Controla todo o pipeline da AT2.
+    Controla todo o pipeline.
     Esta versão executa apenas as etapas concluídas:
     - ler dados
     - preparar dados
@@ -458,6 +624,11 @@ def executar_modelagem(PATHS: dict):
         salvar_metricas_csv(df_metricas, PATHS["CSV_METRIC"])
         logging.info("CSV de métricas salvo")
 
+        gerar_graficos_metricas(df_metricas, PATHS["IMAGES_DIR"])
+        logging.info("Gráficos de métricas gerados.")
+
+        gerar_relatorio_modelagem_pdf(df_metricas, PATHS["PDF_REPORT"], PATHS["IMAGES_DIR"])
+        logging.info("Relatório PDF gerado com sucesso.")
 
     except Exception:
         logging.error("ERRO CRÍTICO NO PIPELINE DA MODELAGEM", exc_info=True)
