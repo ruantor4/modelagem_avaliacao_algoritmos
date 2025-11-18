@@ -19,6 +19,8 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
 
 def ler_dados(caminho : str) -> pd.DataFrame:
     """
@@ -168,6 +170,64 @@ def dividir_dados(
     return X_train, X_test, y_train, y_test
 
 
+def preprocessar_dados(
+        X_train: pd.DataFrame,
+        X_test: pd.DataFrame
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, MinMaxScaler]:
+    """
+    Aplica pré-processamento nos dados:
+    - Padronização (StandardScaler)
+    - Normalização Min-Max (MinMaxScaler)
+
+    REGRAS PROFISSIONAIS:
+    ------------------------------------------
+    - Ajustar (fit) SOMENTE no conjunto de TREINO.
+    - O conjunto de TESTE recebe apenas transform().
+    - Mantemos dois tipos de pré-processamento porque
+      alguns modelos funcionam melhor com StandardScaler,
+      e outros com MinMaxScaler.
+
+    Retorna:
+        X_train_std  -> padronizado
+        X_test_std   -> padronizado
+        X_train_mm   -> normalizado (0-1)
+        X_test_mm    -> normalizado (0-1)
+        scaler_standard
+        scaler_minmax
+    """
+    logging.info("Iniciando pré-processamento dos dados...")
+
+    try:
+        # Padronização (Z-SCORE)
+        scaler_standard = StandardScaler()
+        X_train_std = scaler_standard.fit_transform(X_train)
+        X_test_std = scaler_standard.transform(X_test)
+
+        logging.info("Padronização concluída com sucesso (StandardScaler).")
+ 
+        # Normalização Min-Max (0 a 1)
+        scaler_minmax = MinMaxScaler()
+        X_train_mm = scaler_minmax.fit_transform(X_train)
+        X_test_mm = scaler_minmax.transform(X_test)
+
+        logging.info("Normalização concluída com sucesso (MinMaxScaler).")
+
+    except Exception:
+        logging.error("Erro no pré-processamento dos dados.", exc_info=True)
+        raise
+    
+    logging.info("Pré-processamento finalizado com sucesso.")
+
+    return (
+        X_train_std, 
+        X_test_std, 
+        X_train_mm, 
+        X_test_mm, 
+        scaler_standard, 
+        scaler_minmax
+    )
+
+
 
 def executar_modelagem(PATHS: dict):
     """
@@ -197,6 +257,13 @@ def executar_modelagem(PATHS: dict):
         # Dividir em treino teste
         X_train, X_test, y_train, y_test = dividir_dados(X, y)
         logging.info("Dados divididos")
+        (
+            X_train_std, X_test_std,
+            X_train_mm, X_test_mm,
+            scaler_std, scaler_mm
+        ) = preprocessar_dados(X_train, X_test)
+        logging.info("Dados Processados")
+
 
     except Exception:
         logging.error("ERRO CRÍTICO NO PIPELINE DA MODELAGEM", exc_info=True)
