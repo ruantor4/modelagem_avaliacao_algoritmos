@@ -281,6 +281,8 @@ def criar_modelos_regressao() -> dict[str, object]:
     
     return modelos
 
+
+
 def treinar_modelos(
         modelos:dict,
         X_train: pd.DataFrame,
@@ -380,6 +382,33 @@ def avaliar_modelos(
 
     return df_metricas
 
+def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
+    """
+    Salva o DataFrame de métricas em um arquivo CSV.
+
+    Parâmetros:
+        df_metricas (pd.DataFrame): tabela contendo RMSE, MAE e R² de cada modelo
+        caminho_csv (str): caminho completo onde o arquivo CSV será salvo
+
+    Regras Profissionais:
+        - Criar diretório caso não exista
+        - Salvar sempre sem índice
+        - Log detalhado de sucesso ou erro
+    """
+    logging.info(f"Salvando tabela de métricas em CSV: {caminho_csv}")
+
+    try:
+        os.makedirs(os.path.dirname(caminho_csv), exist_ok=True)
+
+        # Salva o CSV
+        df_metricas.to_csv(caminho_csv, index=False)
+
+        logging.info(f"Tabela de métricas salva com sucesso em: {caminho_csv}")
+
+    except Exception:
+        logging.error("Erro ao salvar métricas em CSV.", exc_info=True)
+        raise
+
 
 def executar_modelagem(PATHS: dict):
     """
@@ -426,6 +455,8 @@ def executar_modelagem(PATHS: dict):
         modelos_treinados = avaliar_modelos(modelos_treinados, X_test_std, y_test)
         logging.info("Modelos avaliados com sucesso.")
 
+        salvar_metricas_csv(df_metricas, PATHS["CSV_METRIC"])
+        logging.info("CSV de métricas salvo")
 
 
     except Exception:
