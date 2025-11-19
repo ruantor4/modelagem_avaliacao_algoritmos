@@ -12,9 +12,13 @@ Objetivo:
 - Aplicar pré-processamento (normalização, padronização, seleção de features)
 - Gerar um relatório em PDF com a análise comparativa entre os modelos
 """
+
 import os
+import json
+import pickle
 import logging
 from datetime import datetime
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -29,7 +33,7 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.svm import SVR
 from sklearn.multioutput import MultiOutputRegressor
 
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -38,18 +42,18 @@ from reportlab.lib.utils import ImageReader
 
 def ler_dados(caminho : str) -> pd.DataFrame:
     """
-    Lê o CSV contendo o dataset e retorna um DataFrame.
+    Lê o arquivo de dados (CSV ou XLSX) e retorna um DataFrame.
 
     Parâmetros
     ----------
-    caminho_arquivo : str
-        Caminho completo até o arquivo CSV. Exemplo:
-        "C:/projetos/eficiencia_energetica/data/dados.csv"
+    caminho : str
+        Caminho completo até o arquivo de dados. Exemplo:
+        "C:/projetos/eficiencia_energetica/data/ENB2012_data.xlsx"
 
     Retorno
     -------
     df : pandas.DataFrame
-        DataFrame contendo os dados lidos do CSV.
+        DataFrame contendo os dados lidos.
     """
     logging.info(f"lendo dados do arquivo: {caminho}")
 
@@ -65,7 +69,7 @@ def ler_dados(caminho : str) -> pd.DataFrame:
             raise ValueError("O arquivo deve ser .csv ou .xlsx")
         
     except FileNotFoundError:
-        logging.error("Arquivo não enontrado", exc_info=True)
+        logging.error("Arquivo não encontrado", exc_info=True)
         raise
     
     except Exception:
@@ -79,8 +83,13 @@ def ler_dados(caminho : str) -> pd.DataFrame:
 
 def renomear_colunas_pt_br(df: pd.DataFrame) -> pd.DataFrame:
     """
-        Renomeia as colunas para nomes mais amigáveis em português.
-        Retorna o DataFrame com as colunas renomeadas.
+    Renomeia as colunas do dataset original (UCI) para nomes em português,
+    padronizando com a AT1.
+
+    Retorno
+    -------
+    df_renomeado : pd.DataFrame
+        DataFrame com as colunas renomeadas.
     """
     logging.info("Renomeando colunas para o padrão em português...")
 
@@ -99,7 +108,6 @@ def renomear_colunas_pt_br(df: pd.DataFrame) -> pd.DataFrame:
     df_renomeado = df.rename(columns=map_colunas)
     
     logging.info("Colunas renomeadas com sucesso.")
-    logging.debug(f"Novos nomes das colunas: {df_renomeado.columns.tolist()}")
     
     return df_renomeado
 
@@ -109,13 +117,15 @@ def preparar_dados(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     Separa o DataFrame em variáveis preditoras (X) e variáveis alvo (y).
 
     Esta função:
-    - garante que as colunas estejam renomeadas (padrão AT1)
+    - garante que as colunas alvo existam
     - separa X (features) e y (targets)
-    - retorna exatamente o formato que os modelos esperam
 
-    Retorna:
-        X (pd.DataFrame): atributos de entrada
-        y (pd.DataFrame): duas saídas (aquecimento e resfriamento)
+    Retorna
+    -------
+    X : pd.DataFrame
+        Atributos de entrada (features).
+    y : pd.DataFrame
+        Duas saídas (Carga_Aquecimento e Carga_Resfriamento).
     """
     logging.info("Preparando dados para modelagem...")
 
@@ -154,14 +164,20 @@ def dividir_dados(
     """
     Divide os dados em conjuntos de treino e teste.
 
-    Parâmetros:
-        X (pd.DataFrame): variáveis preditoras
-        y (pd.DataFrame): variáveis alvo (dupla saída)
-        test_size (float): porcentagem destinada ao conjunto de teste
-        random_state (int): semente para reprodutibilidade
+    Parâmetros
+    ----------
+    X : pd.DataFrame
+        Variáveis preditoras.
+    y : pd.DataFrame
+        Variáveis alvo (dupla saída).
+    test_size : float
+        Proporção usada como teste (padrão 0.2).
+    random_state : int
+        Semente para reprodutibilidade.
 
-    Retorna:
-        X_train, X_test, y_train, y_test
+    Retorno
+    -------
+    X_train, X_test, y_train, y_test : tupla de DataFrames
     """
     logging.info("Dividindo dados em treino e teste...")
     
@@ -174,7 +190,7 @@ def dividir_dados(
         )
     
     except Exception:
-        logging.error("Erro ao dividir dados.", exc_info=True)
+        logging.error("Erro ao dividir dados em treino e teste.", exc_info=True)
         raise
     
     logging.info("Divisão concluída com sucesso.")
@@ -190,24 +206,19 @@ def preprocessar_dados(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, MinMaxScaler]:
     """
     Aplica pré-processamento nos dados:
-    - Padronização (StandardScaler)
-    - Normalização Min-Max (MinMaxScaler)
+    - Padronização (StandardScaler -> média 0, desvio 1)
+    - Normalização Min-Max (MinMaxScaler -> intervalo [0, 1])
 
     REGRAS PROFISSIONAIS:
-    ------------------------------------------
     - Ajustar (fit) SOMENTE no conjunto de TREINO.
-    - O conjunto de TESTE recebe apenas transform().
-    - Mantemos dois tipos de pré-processamento porque
-      alguns modelos funcionam melhor com StandardScaler,
-      e outros com MinMaxScaler.
+    - Aplicar transform no conjunto de TESTE.
+    - Mantemos duas versões dos dados:
+        * std: para modelos baseados em distância / regressão linear
+        * mm:  para experimentos futuros, se necessário
 
-    Retorna:
-        X_train_std  -> padronizado
-        X_test_std   -> padronizado
-        X_train_mm   -> normalizado (0-1)
-        X_test_mm    -> normalizado (0-1)
-        scaler_standard
-        scaler_minmax
+    Retorna
+    -------
+    X_train_std, X_test_std, X_train_mm, X_test_mm, scaler_standard, scaler_minmax
     """
     logging.info("Iniciando pré-processamento dos dados...")
 
@@ -243,23 +254,19 @@ def preprocessar_dados(
 
 def criar_modelos_regressao() -> dict[str, object]:
     """
-    Cria e retorna um dicionário com os modelos de regressão
-    que serão utilizados na AT2.
+    Cria e retorna um dicionário com os modelos de regressão a serem avaliados.
 
-    Modelos incluídos:
-    - Regressão Linear
-    - Ridge
-    - Lasso
-    - Random Forest Regressor
-    - Gradient Boosting (MultiOutput)
-    - SVR (MultiOutput)
+    Modelos definidos:
+        - Linear Regression
+        - Ridge Regression
+        - Lasso Regression
+        - Random Forest Regressor
+        - Gradient Boosting (MultiOutputRegressor)
+        - SVR (MultiOutputRegressor)
 
-    Retorna:
-        dict[str, object]: dicionário no formato
-            {
-                "NomeModelo": instancia_do_modelo,
-                ...
-            }
+    Retorno
+    -------
+    modelos : dict[str, object]
     """
     logging.info("Criando instâncias dos modelos de regressão...")
 
@@ -292,23 +299,30 @@ def criar_modelos_regressao() -> dict[str, object]:
 
 
 def treinar_modelos(
-        modelos:dict,
+        modelos:dict[str, object],
         X_train: pd.DataFrame,
         y_train: pd.DataFrame
-) -> dict:
+) -> dict[str, object]:
     """
     Treina todos os modelos fornecidos no dicionário `modelos`.
 
-    Cada modelo recebe:
-        - X_train (dados preditores padronizados)
-        - y_train (variáveis alvo)
+    Parâmetros
+    ----------
+    modelos : dict[str, object]
+        Dicionário com instâncias dos modelos.
+    X_train : pd.DataFrame
+        Dados de treino (features).
+    y_train : pd.DataFrame
+        Dados de treino (targets).
 
-    Retorna:
-        dict contendo os modelos ajustados (treinados).
+    Retorno
+    -------
+    modelos_treinados : dict[str, object]
+        Dicionário com os modelos já ajustados (fit).
     """
     logging.info("Iniciando treinamento dos modelos de regressão...")  
 
-    modelos_treinados = {}  
+    modelos_treinados: Dict[str, object] = {}  
 
     try:
         for nome, modelo in modelos.items():
@@ -321,7 +335,7 @@ def treinar_modelos(
         logging.error("Erro durante o treinamento dos modelos.", exc_info=True)
         raise
 
-    logging.info("Treinamento concluído para todos os modelos.")
+    logging.info("Todos os modelos foram treinados com sucesso.")
     return modelos_treinados
 
 
@@ -332,43 +346,35 @@ def avaliar_modelos(
         y_test: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    Avalia o desempenho de cada modelo usando as métricas:
-    - RMSE: Raiz do Erro Quadrático Médio
-    - MAE : Erro Absoluto Médio
-    - R²  : Coeficiente de Determinação
+    Calcula as métricas de desempenho (RMSE, MAE, R²) para cada modelo treinado.
 
     Parâmetros
     ----------
-    modelos_treinados : dict
-        Dicionário contendo modelos já treinados.
-        Ex: {"LinearRegression": modelo_fit, "RandomForest": modelo_fit, ...}
-
+    modelos_treinados : dict[str, object]
+        Dicionário com os modelos já ajustados.
     X_test : pd.DataFrame
-        Atributos (preditivas) do conjunto de teste.
-
+        Conjunto de teste (features).
     y_test : pd.DataFrame
-        Variáveis alvo do conjunto de teste.
+        Conjunto de teste (targets).
 
-    Retorna
+    Retorno
     -------
-    pd.DataFrame
-        Tabela contendo as métricas para cada modelo.
-        Colunas: ["Modelo", "RMSE", "MAE", "R2"]
+    df_metricas : pd.DataFrame
+        DataFrame com colunas: ["Modelo", "RMSE", "MAE", "R2"]
     """
     logging.info("Avaliando modelos com RMSE, MAE e R²")
 
     registros = []
+    try:
+        for nome, modelo in modelos_treinados.items():
+            logging.info(f"Avaliando modelo: {nome}")
 
-    for nome, modelo in modelos_treinados.items():
-        logging.info(f"Avaliando modelo: {nome}")
-
-        try:
             # Predição
             y_pred = modelo.predict(X_test)    
 
             # Calculo das métricas
             rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-            mae = mean_squared_error(y_test, y_pred)
+            mae = mean_absolute_error(y_test, y_pred)
             r2 = r2_score(y_test, y_pred)
 
             registros.append({
@@ -378,15 +384,12 @@ def avaliar_modelos(
                 "R2":r2
             })
 
-            logging.info(f"Métricas {nome} -> RMSE: {rmse: .4f}, MAE: {mae:.4f}, R2: {r2:.4f}")
-
-        except Exception:
-            logging.error(f"Erro ao avaliar modelo {nome}.", exc_info=True)
-            raise
+    except Exception:
+        logging.error(f"Erro ao avaliar modelo {nome}.", exc_info=True)
+        raise
 
     df_metricas = pd.DataFrame(registros)
-
-    logging.info("Avaliação concluída com sucesso.")
+    logging.info("Avaliação concluída. Métricas calculadas para todos os modelos.")
 
     return df_metricas
 
@@ -396,21 +399,18 @@ def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
     """
     Salva o DataFrame de métricas em um arquivo CSV.
 
-    Parâmetros:
-        df_metricas (pd.DataFrame): tabela contendo RMSE, MAE e R² de cada modelo
-        caminho_csv (str): caminho completo onde o arquivo CSV será salvo
-
-    Regras Profissionais:
-        - Criar diretório caso não exista
-        - Salvar sempre sem índice
-        - Log detalhado de sucesso ou erro
+    Parâmetros
+    ----------
+    df_metricas : pd.DataFrame
+        Tabela com métricas dos modelos.
+    caminho_csv : str
+        Caminho completo para o arquivo CSV.
     """
     logging.info(f"Salvando tabela de métricas em CSV: {caminho_csv}")
 
     try:
         # Salva o CSV
         df_metricas.to_csv(caminho_csv, index=False)
-
         logging.info(f"Tabela de métricas salva com sucesso em: {caminho_csv}")
 
     except Exception:
@@ -421,17 +421,15 @@ def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
 
 def gerar_graficos_metricas(df_metricas: pd.DataFrame, fig_dir: str) ->None:
     """
-    Gera gráficos comparativos das métricas RMSE, MAE e R² entre os modelos.
+    Gera gráficos de barras comparando RMSE, MAE e R² entre modelos.
+    Salva as figuras na pasta `figs_dir`.
 
-    Parâmetros:
-        df_metricas (pd.DataFrame): tabela contendo as métricas de cada modelo
-        figs_dir (str): diretório onde as figuras serão salvas
-
-    Regras Profissionais:
-        - Criar diretório se não existir
-        - Usar seaborn para gráficos profissionais
-        - Uma figura por métrica
-        - Nome dos arquivos consistente com o pipeline
+    Parâmetros
+    ----------
+    df_metricas : pd.DataFrame
+        Tabela de métricas.
+    figs_dir : str
+        Diretório para salvar as figuras.
     """
     logging.info("Gerando gráficos comparativos das métricas...")    
 
@@ -448,15 +446,12 @@ def gerar_graficos_metricas(df_metricas: pd.DataFrame, fig_dir: str) ->None:
             caminho_fig = os.path.join(fig_dir, f"comparacao_{metrica}.png")
 
             plt.savefig(caminho_fig)
+            logging.info(f"Gráfico salvo: {caminho_fig}")
             plt.close()
-
-            logging.info("Gráfico salvo: {caminho_fig}")
 
     except Exception:
         logging.error("Erro ao gerar gráficos das métricas.", exc_info=True)
         raise
-
-    logging.info("Gráficos gerados com sucesso.")
 
 
 
@@ -466,25 +461,22 @@ def gerar_relatorio_modelagem_pdf(
         figs_dir: str
 ) -> None:
     """
-    Gera o relatório final no formato PDF contendo:
+    Gera o relatório em PDF da AT2, contendo:
 
-    - Capa com título e data
-    - Tabela de métricas (RMSE, MAE, R²)
-    - Gráficos comparativos gerados automaticamente
+    - Capa
+    - Tabela de métricas por modelo
+    - Gráficos comparativos das métricas
 
-    Parâmetros:
-        df_metricas (pd.DataFrame): tabela de resultados dos modelos
-        caminho_pdf (str): caminho completo para salvar o PDF
-        figs_dir (str): pasta contendo os gráficos PNG
-
-    Regras Profissionais:
-        - Criar páginas separadas sempre que necessário
-        - Garantir formatação limpa e alinhada
-        - Quebrar linhas automaticamente ao desenhar tabelas
-        - Verificar existência de figuras antes de inserir
-        - Layout consistente com documentos acadêmicos
+    Parâmetros
+    ----------
+    df_metricas : pd.DataFrame
+        Tabela de métricas dos modelos.
+    caminho_pdf : str
+        Caminho completo para salvar o PDF.
+    figs_dir : str
+        Diretório contendo as figuras de comparação.
     """
-    logging.info("Gerando relatório PDF...")
+    logging.info("Gerando relatório de modelagem PDF...")
 
     try:
         largura, altura = A4
@@ -493,27 +485,17 @@ def gerar_relatorio_modelagem_pdf(
         # Capa
         c.setFont("Helvetica-Bold", 22)
         c.drawCentredString(largura / 2, altura - 100, "AT2 – Modelagem de Regressão")
-
         c.setFont("Helvetica", 12)
         c.drawCentredString(
             largura / 2,
             altura - 130,
             f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-
-        c.setFont("Helvetica", 11)
-        c.drawCentredString(
-            largura / 2,
-            altura - 160,
-            "Análise comparativa de modelos supervisionados para eficiência energética"
-        )
-
         c.showPage()
 
         # Tabela de Metricas
         c.setFont("Helvetica-Bold", 16)
         c.drawString(40, altura - 60, "Tabela Comparativa de Métricas")
-
         c.setFont("Courier", 10)
 
         tabela_txt = df_metricas.to_string(index=False)
@@ -528,8 +510,41 @@ def gerar_relatorio_modelagem_pdf(
                 c.showPage()
                 c.setFont("Courier", 10)
                 y = altura - 60
+        
+        c.showPage()
+        
+        # Analise
+        melhor = df_metricas.sort_values("R2", ascending=False).iloc[0]
 
- 
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(40, altura - 50, "Análise Comparativa dos Modelos")
+
+        texto = [
+            f"Melhor modelo: {melhor['Modelo']}",
+            "",
+            f"• R²  = {melhor['R2']:.4f}",
+            f"• RMSE = {melhor['RMSE']:.4f}",
+            f"• MAE  = {melhor['MAE']:.4f}",
+            "",
+            "Conclusão:",
+            "O melhor modelo apresentou a maior capacidade explicativa e menor erro.",
+            "Modelos lineares tiveram pior desempenho, indicando forte não-linearidade.",
+            "RandomForest e GradientBoosting tiveram boa performance geral.",
+        ]
+
+        c.setFont("Helvetica", 12)
+        y = altura - 90
+        for linha in texto:
+            c.drawString(40, y, linha)
+            y -= 20
+
+            if y < 60:
+                c.showPage()
+                c.setFont("Helvetica", 12)
+                y = altura - 60
+
+        c.showPage()  # <-- FECHA ANÁLISE
+
         # GRÁFICOS
         if os.path.exists(figs_dir):
             figuras = sorted([
@@ -571,7 +586,98 @@ def gerar_relatorio_modelagem_pdf(
         logging.info(f"Relatório PDF da modelagem salvo em: {caminho_pdf}")
 
     except Exception:
-        logging.error("Erro ao gerar relatório PDF da AT2.", exc_info=True)
+        logging.error("Erro ao gerar relatório PDF da modelagem.", exc_info=True)
+        raise
+
+
+
+def selecionar_melhor_modelo(df_metricas: pd.DataFrame) -> str:
+    """
+    Seleciona o melhor modelo com base no MAIOR R².
+
+    Parâmetros
+    ----------
+    df_metricas : pd.DataFrame
+        Tabela de métricas com colunas ["Modelo", "RMSE", "MAE", "R2"].
+
+    Retorno
+    -------
+    nome_modelo : str
+        Nome do modelo vencedor.
+    """
+    logging.info("Selecionando o melhor modelo com base no R²...")
+    try:
+        df_ordenado = df_metricas.sort_values(by="R2", ascending=False)
+        melhor_linha = df_ordenado.iloc[0]
+        nome_modelo = melhor_linha["Modelo"]
+
+        logging.info(
+            f"Melhor modelo: {nome_modelo} "
+            f"(RMSE={melhor_linha['RMSE']:.4f}, "
+            f"MAE={melhor_linha['MAE']:.4f}, "
+            f"R²={melhor_linha['R2']:.4f})"
+        )
+
+    except Exception:
+        logging.error("Erro ao selecionar o melhor modelo.", exc_info=True)
+        raise
+
+    return nome_modelo
+
+
+def salvar_modelo_final(
+    modelo: object,
+    scaler: StandardScaler,
+    colunas: list,
+    caminho_modelo: str,
+    caminho_scaler: str,
+    caminho_colunas: str
+) -> None:
+    """
+    Salva em disco:
+    - modelo final treinado
+    - scaler usado na padronização
+    - ordem das colunas (features)
+
+    Esses arquivos serão utilizados na AT3 (sistema web em Django).
+
+    Parâmetros
+    ----------
+    modelo : object
+        Instância do modelo treinado (ex: RandomForestRegressor).
+    scaler : StandardScaler
+        Scaler usado no pré-processamento (padronização).
+    colunas : list[str]
+        Lista de nomes das colunas de entrada (X.columns).
+    caminho_modelo : str
+        Caminho para salvar o arquivo .pkl do modelo.
+    caminho_scaler : str
+        Caminho para salvar o arquivo .pkl do scaler.
+    caminho_colunas : str
+        Caminho para salvar o JSON com a ordem das features.
+    """
+    logging.info("Salvando modelo final, scaler e colunas para produção...")
+
+    try:
+        # Modelo
+        with open(caminho_modelo, "wb") as f_modelo:
+            pickle.dump(modelo, f_modelo)
+
+        # Scaler
+        with open(caminho_scaler, "wb") as f_scaler:
+            pickle.dump(scaler, f_scaler)
+
+        # Colunas
+        meta = {"colunas":colunas}
+        with open(caminho_colunas, "w", encoding="utf=8") as f_json:
+            json.dump(meta, f_json, indent=4, ensure_ascii=False)
+
+        logging.info(f"Modelo final salvo em: {caminho_modelo}")
+        logging.info(f"Scaler salvo em: {caminho_scaler}")
+        logging.info(f"Colunas salvas em: {caminho_colunas}")
+
+    except Exception:
+        logging.error("Erro ao salvar o modelo final e artefatos de produção.", exc_info=True)
         raise
 
 
@@ -579,10 +685,19 @@ def gerar_relatorio_modelagem_pdf(
 def executar_modelagem(PATHS: dict):
     """
     Controla todo o pipeline.
-    Esta versão executa apenas as etapas concluídas:
-    - ler dados
-    - preparar dados
-    - dividir dados
+
+    1. Ler dados
+    2. Renomear colunas para português
+    3. Preparar X e y
+    4. Dividir em treino e teste
+    5. Pré-processar (StandardScaler / MinMaxScaler)
+    6. Criar e treinar modelos de regressão
+    7. Avaliar modelos (RMSE, MAE, R²)
+    8. Salvar métricas em CSV
+    9. Gerar gráficos comparativos
+    10. Gerar relatório em PDF
+    11. Selecionar o melhor modelo (maior R²)
+    12. Salvar modelo final, scaler e colunas para uso na AT3
     """
     logging.info("======= INICIANDO PIPELINE MODELAGEM DE REGRESSÃO =======")
     
@@ -592,7 +707,7 @@ def executar_modelagem(PATHS: dict):
         df = ler_dados(PATHS["DATA_PATH"])
         logging.info("dados lidos")
 
-        # 
+        # Renomear colunas
         df = renomear_colunas_pt_br(df)
         logging.info("Colunas renomeadas para português")
 
@@ -604,31 +719,57 @@ def executar_modelagem(PATHS: dict):
         # Dividir em treino teste
         X_train, X_test, y_train, y_test = dividir_dados(X, y)
         logging.info("Dados divididos")
+        
+        # Pré-processar (usaremos X_train_std / X_test_std nos modelos)
         (
             X_train_std, X_test_std,
             X_train_mm, X_test_mm,
             scaler_std, scaler_mm
         ) = preprocessar_dados(X_train, X_test)
-        logging.info("Dados Processados")
+        logging.info("Pré-processamento concluído.")
 
+        # Criar modelos
         modelos = criar_modelos_regressao()
         logging.info("Modelos de regressão criados com sucesso.")
 
+        # Treinar modelos (usando dados padronizados)
         modelos_treinados = treinar_modelos(modelos, X_train_std, y_train)
-        logging.info("Modelos Avaliados")
+        logging.info("Modelos treinados")
 
-        df_metricas = avaliar_modelos(modelos_treinados, X_train_std, y_train)
-        modelos_treinados = avaliar_modelos(modelos_treinados, X_test_std, y_test)
+        # Avaliar modelos
+        df_metricas = avaliar_modelos(modelos_treinados, X_test_std, y_test)
         logging.info("Modelos avaliados com sucesso.")
 
+        # Salvar métricas em CSV
         salvar_metricas_csv(df_metricas, PATHS["CSV_METRIC"])
         logging.info("CSV de métricas salvo")
 
+        # Gerar gráficos
         gerar_graficos_metricas(df_metricas, PATHS["IMAGES_DIR"])
         logging.info("Gráficos de métricas gerados.")
 
-        gerar_relatorio_modelagem_pdf(df_metricas, PATHS["PDF_REPORT"], PATHS["IMAGES_DIR"])
+        # Gerar relatorio PDF da modelagem
+        gerar_relatorio_modelagem_pdf(
+            df_metricas, 
+            PATHS["PDF_REPORT"], 
+            PATHS["IMAGES_DIR"]
+        )
         logging.info("Relatório PDF gerado com sucesso.")
+
+        # Selecionar o melhor modelo
+        melhor_nome = selecionar_melhor_modelo(df_metricas)
+        melhor_modelo = modelos_treinados[melhor_nome]
+        logging.info(f"Melhor modelo selecionado: {melhor_nome}")
+
+        # Salvar modelo final, scaler e colunas
+        salvar_modelo_final(
+            modelo=melhor_modelo,
+            scaler=scaler_std,
+            colunas=list(X.columns),
+            caminho_modelo=PATHS["MODELO_PATH"],
+            caminho_scaler=PATHS["SCALER_PATH"],
+            caminho_colunas=PATHS["COLUNAS_JSON_PATH"],
+        )
 
     except Exception:
         logging.error("ERRO CRÍTICO NO PIPELINE DA MODELAGEM", exc_info=True)
