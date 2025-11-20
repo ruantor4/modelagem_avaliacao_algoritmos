@@ -41,13 +41,13 @@ def main():
     "CSV_METRIC": os.path.join(BASE_PATH, "outputs", "metricas_modelos.csv"),
 
     # LOG
-    "LOG_PATH": os.path.join(BASE_PATH, "logs.txt"),
+    "LOG_PATH": os.path.join(BASE_PATH, "outputs", "logs.txt"),
 
     # Arquivos ML
     "MODELO_PATH": os.path.join(BASE_PATH, "outputs", "ml", "modelo.pkl"),
     "SCALER_PATH": os.path.join(BASE_PATH, "outputs", "ml", "scaler.pkl"),
     "COLUNAS_JSON_PATH": os.path.join(BASE_PATH, "outputs", "ml", "colunas_modelo.json"),
-}
+    }
 
     # Garante que as pastas existem
     os.makedirs(PATHS["OUTPUT_DIR"], exist_ok=True)
