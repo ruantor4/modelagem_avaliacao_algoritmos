@@ -12,10 +12,10 @@ def log_system(log_path: str):
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers={
+        handlers=[
             logging.FileHandler(log_path, mode='a', encoding='utf-8'),
             logging.StreamHandler()
-        }
+        ]
     )
     logging.info("======== INÍCIO DA EXECUÇÃO ========")
 
@@ -24,21 +24,36 @@ def main():
     
     # Base do projeto
     BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    
-    # caminhos
+   
     PATHS = {
-        "BASE_PATH": BASE_PATH,
-        "DATA_PATH": os.path.join(BASE_PATH, "data", "ENB2012_data.xlsx"),
-        "OUTPUT_DIR": os.path.join(BASE_PATH, "outputs"),
-        "IMAGES_DIR": os.path.join(BASE_PATH, "outputs", "figs" ),
-        "REPORT_MODELAGEM": os.path.join(BASE_PATH, "outputs", "relatorio_modelagem.pdf"),
-        "CSV_METRIC": os.path.join(BASE_PATH, "outputs", "metricas_modelos.csv"),
-        "LOG_PATH": os.path.join(BASE_PATH, "logs.txt")
+    # BASE
+    "BASE_PATH": BASE_PATH,
+
+    # DADOS
+    "DATA_PATH": os.path.join(BASE_PATH, "data", "ENB2012_data.xlsx"),
+
+    # SAÍDAS
+    "OUTPUT_DIR": os.path.join(BASE_PATH, "outputs"),
+    "IMAGES_DIR": os.path.join(BASE_PATH, "outputs", "figs"),
+    "ML_DIR":os.path.join(BASE_PATH, "outputs", "ml"),
+
+    "PDF_REPORT": os.path.join(BASE_PATH, "outputs", "relatorio_modelagem.pdf"),
+    "CSV_METRIC": os.path.join(BASE_PATH, "outputs", "metricas_modelos.csv"),
+
+    # LOG
+    "LOG_PATH": os.path.join(BASE_PATH, "outputs", "logs.txt"),
+
+    # Arquivos ML
+    "MODELO_PATH": os.path.join(BASE_PATH, "outputs", "ml", "modelo.pkl"),
+    "SCALER_PATH": os.path.join(BASE_PATH, "outputs", "ml", "scaler.pkl"),
+    "COLUNAS_JSON_PATH": os.path.join(BASE_PATH, "outputs", "ml", "colunas_modelo.json"),
     }
 
     # Garante que as pastas existem
     os.makedirs(PATHS["OUTPUT_DIR"], exist_ok=True)
     os.makedirs(PATHS["IMAGES_DIR"], exist_ok=True)
+    os.makedirs(PATHS["ML_DIR"], exist_ok=True)
+
     
     # Configura os logs
     log_system(PATHS["LOG_PATH"])

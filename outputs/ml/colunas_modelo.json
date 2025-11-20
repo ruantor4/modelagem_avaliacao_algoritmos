@@ -1,0 +1,12 @@
+{
+    "colunas": [
+        "Compacidade_Relativa",
+        "Area_Superficial",
+        "Area_Parede",
+        "Area_Telhado",
+        "Altura_Total",
+        "Orientacao",
+        "Area_Vidro",
+        "Distribuicao_Area_Vidro"
+    ]
+}
