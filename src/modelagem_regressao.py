@@ -42,21 +42,28 @@ from reportlab.lib.utils import ImageReader
 
 def ler_dados(caminho : str) -> pd.DataFrame:
     """
-    Lê o arquivo de dados (CSV ou XLSX) e retorna um DataFrame.
+    Lê um arquivo CSV/XLSX e retorna um DataFrame validado.
 
-    Parâmetros
-    ----------
-    caminho : str
-        Caminho completo até o arquivo de dados. Exemplo:
-        "C:/projetos/eficiencia_energetica/data/ENB2012_data.xlsx"
+    Parâmetros:
+        caminho (str): Caminho completo do arquivo.
 
-    Retorno
-    -------
-    df : pandas.DataFrame
-        DataFrame contendo os dados lidos.
+    Retorno:
+        DataFrame contendo os dados carregados.
+
+    Exceções:
+        ValueError: Caminho inválido ou extensão não suportada.
+        FileNotFoundError: Arquivo não encontrado.
+        Exception: Erros inesperados na leitura.
     """
-    logging.info(f"lendo dados do arquivo: {caminho}")
+    logging.info(f"Lendo dados do arquivo: {caminho}")
+   
+    # Validação de entrada
+    if not isinstance(caminho, str):
+        raise ValueError("O caminho do arquivo deve ser uma string.")
 
+    if not os.path.exists(caminho):
+        raise FileNotFoundError(f"Arquivo não encontrado: {caminho}")
+    
     try:
         if caminho.endswith(".csv"):
             df = pd.read_csv(caminho)
@@ -76,6 +83,10 @@ def ler_dados(caminho : str) -> pd.DataFrame:
         logging.error("Erro ao ler o arquivo de dados.", exc_info=True)
         raise
 
+    if df.empty:
+        raise ValueError("O arquivo foi lido, mas está vazio.")
+
+
     logging.info(f"Dataset carregado com sucesso: {df.shape[0]} linhas x {df.shape[1]} colunas")
 
     return df
@@ -83,13 +94,13 @@ def ler_dados(caminho : str) -> pd.DataFrame:
 
 def renomear_colunas_pt_br(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Renomeia as colunas do dataset original (UCI) para nomes em português,
-    padronizando com a AT1.
+    Renomeia as colunas para o padrão em português usado no projeto.
 
-    Retorno
-    -------
-    df_renomeado : pd.DataFrame
-        DataFrame com as colunas renomeadas.
+    Parâmetros:
+        df (DataFrame): Dados originais.
+
+    Retorno:
+        DataFrame com nomes padronizados.
     """
     logging.info("Renomeando colunas para o padrão em português...")
 
@@ -114,21 +125,26 @@ def renomear_colunas_pt_br(df: pd.DataFrame) -> pd.DataFrame:
 
 def preparar_dados(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Separa o DataFrame em variáveis preditoras (X) e variáveis alvo (y).
+    Separa o dataset em variáveis preditoras (X) e alvos (y).
 
-    Esta função:
-    - garante que as colunas alvo existam
-    - separa X (features) e y (targets)
+    Parâmetros:
+        df (DataFrame): Dados já renomeados.
 
-    Retorna
-    -------
-    X : pd.DataFrame
-        Atributos de entrada (features).
-    y : pd.DataFrame
-        Duas saídas (Carga_Aquecimento e Carga_Resfriamento).
+    Retorno:
+        (X, y): DataFrames separados.
+
+    Exceções:
+        ValueError/KeyError: Estrutura inválida ou colunas ausentes.
     """
     logging.info("Preparando dados para modelagem...")
+    
+    # Validação
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df deve ser um DataFrame.")
 
+    if df.empty:
+        raise ValueError("O DataFrame de entrada está vazio.")
+    
     try:
         # Define quais colunas sao alvos
         targets = ["Carga_Aquecimento", "Carga_Resfriamento"]
@@ -139,6 +155,9 @@ def preparar_dados(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                 logging.error(f"Coluna alvo não encontrada: {t}")
                 raise KeyError(f"Coluna alvo não encontrada: {t}")
         
+        if df.isnull().any().any():
+            raise ValueError("O dataset contém valores nulos. Trate antes da modelagem.")
+        
         # X recebe todas colunas exceto targets
         X = df.drop(columns=targets)
 
@@ -146,7 +165,7 @@ def preparar_dados(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         y = df[targets]
 
     except Exception:
-        logging.error("Erro ao prepar dados para modelagem.", exc_info=True)
+        logging.error("Erro ao preparar dados para modelagem.", exc_info=True)
         raise
 
     logging.info("Dados preparados com sucesso (X e y separados).")
@@ -162,22 +181,14 @@ def dividir_dados(
         random_state: int = 42
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Divide os dados em conjuntos de treino e teste.
+    Divide os dados em treino e teste.
 
-    Parâmetros
-    ----------
-    X : pd.DataFrame
-        Variáveis preditoras.
-    y : pd.DataFrame
-        Variáveis alvo (dupla saída).
-    test_size : float
-        Proporção usada como teste (padrão 0.2).
-    random_state : int
-        Semente para reprodutibilidade.
+    Parâmetros:
+        X (DataFrame): Atributos.
+        y (DataFrame): Alvos.
 
-    Retorno
-    -------
-    X_train, X_test, y_train, y_test : tupla de DataFrames
+    Retorno:
+        X_train, X_test, y_train, y_test
     """
     logging.info("Dividindo dados em treino e teste...")
     
@@ -205,20 +216,14 @@ def preprocessar_dados(
         X_test: pd.DataFrame
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, MinMaxScaler]:
     """
-    Aplica pré-processamento nos dados:
-    - Padronização (StandardScaler -> média 0, desvio 1)
-    - Normalização Min-Max (MinMaxScaler -> intervalo [0, 1])
+    Padroniza e normaliza os dados (StandardScaler/MinMaxScaler).
 
-    REGRAS PROFISSIONAIS:
-    - Ajustar (fit) SOMENTE no conjunto de TREINO.
-    - Aplicar transform no conjunto de TESTE.
-    - Mantemos duas versões dos dados:
-        * std: para modelos baseados em distância / regressão linear
-        * mm:  para experimentos futuros, se necessário
+    Parâmetros:
+        X_train (DataFrame)
+        X_test (DataFrame)
 
-    Retorna
-    -------
-    X_train_std, X_test_std, X_train_mm, X_test_mm, scaler_standard, scaler_minmax
+    Retorno:
+        Tupla com versões padronizadas e normalizadas + scalers.
     """
     logging.info("Iniciando pré-processamento dos dados...")
 
@@ -304,21 +309,14 @@ def treinar_modelos(
         y_train: pd.DataFrame
 ) -> dict[str, object]:
     """
-    Treina todos os modelos fornecidos no dicionário `modelos`.
+    Treina todos os modelos fornecidos.
 
-    Parâmetros
-    ----------
-    modelos : dict[str, object]
-        Dicionário com instâncias dos modelos.
-    X_train : pd.DataFrame
-        Dados de treino (features).
-    y_train : pd.DataFrame
-        Dados de treino (targets).
+    Parâmetros:
+        modelos (dict): Modelos instanciados.
+        X_train, y_train: Dados de treino.
 
-    Retorno
-    -------
-    modelos_treinados : dict[str, object]
-        Dicionário com os modelos já ajustados (fit).
+    Retorno:
+        dict com modelos treinados.
     """
     logging.info("Iniciando treinamento dos modelos de regressão...")  
 
@@ -419,7 +417,7 @@ def salvar_metricas_csv(df_metricas: pd.DataFrame, caminho_csv: str) ->None:
 
 
 
-def gerar_graficos_metricas(df_metricas: pd.DataFrame, fig_dir: str) ->None:
+def gerar_graficos_metricas(df_metricas: pd.DataFrame, figs_dir: str) ->None:
     """
     Gera gráficos de barras comparando RMSE, MAE e R² entre modelos.
     Salva as figuras na pasta `figs_dir`.
@@ -437,15 +435,29 @@ def gerar_graficos_metricas(df_metricas: pd.DataFrame, fig_dir: str) ->None:
         metricas = ["RMSE", "MAE", "R2"]
 
         for metrica in metricas:
-            plt.figure(figsize=(9, 4))
-            sns.barplot(data=df_metricas, x="Modelo", y=metrica)
-            plt.title(f"Comparação dos Modelos - {metrica}")
+            if metrica not in df_metricas.columns:
+                logging.error(f"Métrica {metrica} não encontrada")
+
+            # Ordena para visualização (RMSE/MAE: menor é melhor; R2: maior é melhor)
+            ascending = False if metrica == "R2" else True
+            df_plot = df_metricas.sort_values(by=metrica, ascending=ascending)
+
+            plt.figure(figsize=(10, 5))
+            ax = sns.barplot(data=df_plot, x="Modelo", y=metrica)
+            ax.set_title(f"Comparação do Modelos - {metrica}")
             plt.xticks(rotation=45, ha="right")
-            plt.tight_layout()
+            
+            # Destacar melhor modelo
+            best_idx = df_plot[metrica].idxmin() if metrica != "R2" else df_plot[metrica].idxmax()
+            best_mod = df_plot.loc[best_idx, "Modelo"]
+            for p, label in zip(ax.patches, df_plot["Modelo"]):
+                if label == best_mod:
+                    p.set_edgecolor("black")
+                    p.set_linewidth(1.2)
 
-            caminho_fig = os.path.join(fig_dir, f"comparacao_{metrica}.png")
-
-            plt.savefig(caminho_fig)
+            plt.tight_layout()      
+            caminho_fig = os.path.join(figs_dir, f"comparacao_{metrica}.png")
+            plt.savefig(caminho_fig, dpi=300, bbox_inches='tight')
             logging.info(f"Gráfico salvo: {caminho_fig}")
             plt.close()
 
@@ -461,7 +473,7 @@ def gerar_relatorio_modelagem_pdf(
         figs_dir: str
 ) -> None:
     """
-    Gera o relatório em PDF da AT2, contendo:
+    Gera o relatório em PDF, contendo:
 
     - Capa
     - Tabela de métricas por modelo
@@ -669,7 +681,7 @@ def salvar_modelo_final(
 
         # Colunas
         meta = {"colunas":colunas}
-        with open(caminho_colunas, "w", encoding="utf=8") as f_json:
+        with open(caminho_colunas, "w", encoding="utf-8") as f_json:
             json.dump(meta, f_json, indent=4, ensure_ascii=False)
 
         logging.info(f"Modelo final salvo em: {caminho_modelo}")

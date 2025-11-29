@@ -1,0 +1,69 @@
+2025-11-29 17:07:07,919 - INFO - ======== INÍCIO DA EXECUÇÃO ========
+2025-11-29 17:07:07,919 - INFO - Executando modelagem...
+2025-11-29 17:07:07,919 - INFO - ======= INICIANDO PIPELINE MODELAGEM DE REGRESSÃO =======
+2025-11-29 17:07:07,919 - INFO - Lendo dados do arquivo: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\data\ENB2012_data.xlsx
+2025-11-29 17:07:08,326 - INFO - Dataset carregado com sucesso: 768 linhas x 10 colunas
+2025-11-29 17:07:08,326 - INFO - dados lidos
+2025-11-29 17:07:08,326 - INFO - Renomeando colunas para o padrão em português...
+2025-11-29 17:07:08,333 - INFO - Colunas renomeadas com sucesso.
+2025-11-29 17:07:08,334 - INFO - Colunas renomeadas para português
+2025-11-29 17:07:08,335 - INFO - Preparando dados para modelagem...
+2025-11-29 17:07:08,343 - INFO - Dados preparados com sucesso (X e y separados).
+2025-11-29 17:07:08,344 - INFO - Formato X: (768, 8) | Formato y: (768, 2)
+2025-11-29 17:07:08,344 - INFO - Dados preparados
+2025-11-29 17:07:08,345 - INFO - Dividindo dados em treino e teste...
+2025-11-29 17:07:08,347 - INFO - Divisão concluída com sucesso.
+2025-11-29 17:07:08,348 - INFO - X_train: (614, 8) | X_test: (154, 8)
+2025-11-29 17:07:08,348 - INFO - y_train: (614, 2) | y_test: (154, 2)
+2025-11-29 17:07:08,348 - INFO - Dados divididos
+2025-11-29 17:07:08,349 - INFO - Iniciando pré-processamento dos dados...
+2025-11-29 17:07:08,352 - INFO - Padronização concluída com sucesso (StandardScaler).
+2025-11-29 17:07:08,355 - INFO - Normalização concluída com sucesso (MinMaxScaler).
+2025-11-29 17:07:08,355 - INFO - Pré-processamento finalizado com sucesso.
+2025-11-29 17:07:08,356 - INFO - Pré-processamento concluído.
+2025-11-29 17:07:08,356 - INFO - Criando instâncias dos modelos de regressão...
+2025-11-29 17:07:08,357 - INFO - Total de modelos criados: 6
+2025-11-29 17:07:08,357 - INFO - Modelos de regressão criados com sucesso.
+2025-11-29 17:07:08,358 - INFO - Iniciando treinamento dos modelos de regressão...
+2025-11-29 17:07:08,358 - INFO - Treinando modelo: LinearRegression
+2025-11-29 17:07:08,382 - INFO - Modelo treinado com sucesso: LinearRegression
+2025-11-29 17:07:08,383 - INFO - Treinando modelo: Ridge
+2025-11-29 17:07:08,397 - INFO - Modelo treinado com sucesso: Ridge
+2025-11-29 17:07:08,397 - INFO - Treinando modelo: Lasso
+2025-11-29 17:07:08,406 - INFO - Modelo treinado com sucesso: Lasso
+2025-11-29 17:07:08,407 - INFO - Treinando modelo: RandomForest
+2025-11-29 17:07:08,933 - INFO - Modelo treinado com sucesso: RandomForest
+2025-11-29 17:07:08,934 - INFO - Treinando modelo: GradientBoosting
+2025-11-29 17:07:09,102 - INFO - Modelo treinado com sucesso: GradientBoosting
+2025-11-29 17:07:09,102 - INFO - Treinando modelo: SVR
+2025-11-29 17:07:09,414 - INFO - Modelo treinado com sucesso: SVR
+2025-11-29 17:07:09,415 - INFO - Todos os modelos foram treinados com sucesso.
+2025-11-29 17:07:09,415 - INFO - Modelos treinados
+2025-11-29 17:07:09,416 - INFO - Avaliando modelos com RMSE, MAE e R²
+2025-11-29 17:07:09,416 - INFO - Avaliando modelo: LinearRegression
+2025-11-29 17:07:09,419 - INFO - Avaliando modelo: Ridge
+2025-11-29 17:07:09,422 - INFO - Avaliando modelo: Lasso
+2025-11-29 17:07:09,426 - INFO - Avaliando modelo: RandomForest
+2025-11-29 17:07:09,451 - INFO - Avaliando modelo: GradientBoosting
+2025-11-29 17:07:09,457 - INFO - Avaliando modelo: SVR
+2025-11-29 17:07:09,476 - INFO - Avaliação concluída. Métricas calculadas para todos os modelos.
+2025-11-29 17:07:09,477 - INFO - Modelos avaliados com sucesso.
+2025-11-29 17:07:09,477 - INFO - Salvando tabela de métricas em CSV: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\metricas_modelos.csv
+2025-11-29 17:07:09,481 - INFO - Tabela de métricas salva com sucesso em: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\metricas_modelos.csv
+2025-11-29 17:07:09,482 - INFO - CSV de métricas salvo
+2025-11-29 17:07:09,482 - INFO - Gerando gráficos comparativos das métricas...
+2025-11-29 17:07:10,154 - INFO - Gráfico salvo: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\figs\comparacao_RMSE.png
+2025-11-29 17:07:10,638 - INFO - Gráfico salvo: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\figs\comparacao_MAE.png
+2025-11-29 17:07:10,981 - INFO - Gráfico salvo: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\figs\comparacao_R2.png
+2025-11-29 17:07:10,992 - INFO - Gráficos de métricas gerados.
+2025-11-29 17:07:10,992 - INFO - Gerando relatório de modelagem PDF...
+2025-11-29 17:07:11,789 - INFO - Relatório PDF da modelagem salvo em: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\relatorio_modelagem.pdf
+2025-11-29 17:07:11,795 - INFO - Relatório PDF gerado com sucesso.
+2025-11-29 17:07:11,795 - INFO - Selecionando o melhor modelo com base no R²...
+2025-11-29 17:07:11,796 - INFO - Melhor modelo: GradientBoosting (RMSE=1.1311, MAE=0.7217, R²=0.9864)
+2025-11-29 17:07:11,796 - INFO - Melhor modelo selecionado: GradientBoosting
+2025-11-29 17:07:11,797 - INFO - Salvando modelo final, scaler e colunas para produção...
+2025-11-29 17:07:11,808 - INFO - Modelo final salvo em: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\ml\modelo.pkl
+2025-11-29 17:07:11,808 - INFO - Scaler salvo em: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\ml\scaler.pkl
+2025-11-29 17:07:11,809 - INFO - Colunas salvas em: c:\Users\ruant\Desktop\MACHINE LEARN\eficiencia_energitica_AT2\modelagem_avalição_algoritimos\outputs\ml\colunas_modelo.json
+2025-11-29 17:07:11,817 - INFO - Execução finalizada com sucesso!
